@@ -2,11 +2,8 @@ def scmVars
 def changeMessage
 pipeline {
   agent { label 'linux' && 'java' }
-  parameters {
-    booleanParam(name: 'MIDNIGHT_BUILD', defaultValue: 'false', description: 'Midnight build')
-  }
   triggers {
-    parameterizedCron('@midnight %MIDNIGHT_BUILD=true')
+    cron('@midnight')
   }
   options {
     skipDefaultCheckout()
@@ -43,13 +40,13 @@ cvc4 --version | head -n 3
 mathsat -version
 echo "All solvers available!"
 ''')
-        echo "This is a ${env.MIDNIGHT_BUILD ? 'midnight build' : 'normal build'}"
       }
     }
     stage('Build and run basic tests') {
       when {
-        expression {
-          !currentBuild.changeSets.isEmpty() && !MIDNIGHT_BUILD
+        allOf {
+          expression { !currentBuild.changeSets.isEmpty() }
+          not { triggeredBy 'TimerTrigger' }
         }
       }
       steps {
@@ -60,8 +57,9 @@ echo "All solvers available!"
     }
     stage('Build and run nightly tests') {
       when {
-        expression {
-          !currentBuild.changeSets.isEmpty() && env.MIDNIGHT_BUILD
+        allOf {
+          expression { !currentBuild.changeSets.isEmpty() }
+          triggeredBy 'TimerTrigger'
         }
       }
       // TODO     - ensure that test attachements are published s
@@ -86,8 +84,9 @@ echo "All solvers available!"
       // - Check how sonar scanner with pipeline and maven works OR somehow do the "Prepare SonarQube Scanner environment" step
       // - execute mvn $SONAR_MAVEN_GOAL -Pcoverage -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN
       when {
-        expression {
-          !currentBuild.changeSets.isEmpty() && env.MIDNIGHT_BUILD
+        allOf {
+          expression { !currentBuild.changeSets.isEmpty() }
+          triggeredBy 'TimerTrigger'
         }
       }
       steps {
@@ -99,8 +98,9 @@ echo "All solvers available!"
       // - deploy nightly build to monteverdi if build succeeds
       // - Use https://stackoverflow.com/questions/44237417/how-do-i-use-ssh-in-a-jenkins-pipeline
       when {
-        expression {
-          !currentBuild.changeSets.isEmpty() && env.MIDNIGHT_BUILD
+        allOf {
+          expression { !currentBuild.changeSets.isEmpty() }
+          triggeredBy 'TimerTrigger'
         }
       }
       steps {
