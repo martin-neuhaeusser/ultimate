@@ -43,12 +43,13 @@ cvc4 --version | head -n 3
 mathsat -version
 echo "All solvers available!"
 ''')
+        echo "This is a ${MIDNIGHT_BUILD ? 'midnight build' : 'normal build'}"
       }
     }
     stage('Build and run basic tests') {
       when {
         expression {
-          !currentBuild.changeSets.isEmpty() && !env.MIDNIGHT_BUILD
+          !currentBuild.changeSets.isEmpty() && !MIDNIGHT_BUILD
         }
       }
       steps {
@@ -162,7 +163,7 @@ mv *.zip "${TARGET}/"
 ${changeMessage}
 """,
         text: '', 
-        channel: '#ultimate', 
+        channel: '#botpool', 
         icon: "https://jenkins.sopranium.de/static/0e41ff2a/images/jenkins-header-logo-v2.svg"
       )
     }
