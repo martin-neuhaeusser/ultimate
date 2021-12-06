@@ -43,7 +43,7 @@ cvc4 --version | head -n 3
 mathsat -version
 echo "All solvers available!"
 ''')
-        echo "This is a ${${env.MIDNIGHT_BUILD} ? 'midnight build' : 'normal build'}"
+        echo "This is a ${env.MIDNIGHT_BUILD ? 'midnight build' : 'normal build'}"
       }
     }
     stage('Build and run basic tests') {
