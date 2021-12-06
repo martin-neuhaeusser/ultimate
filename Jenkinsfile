@@ -84,8 +84,10 @@ echo "All solvers available!"
       // TODO     
       // - Check how sonar scanner with pipeline and maven works OR somehow do the "Prepare SonarQube Scanner environment" step
       // - execute mvn $SONAR_MAVEN_GOAL -Pcoverage -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN
-      expression {
+      when {
+        expression {
           !env.currentBuild.changeSets.isEmpty() && env.MIDNIGHT_BUILD
+        }
       }
       steps {
         echo "Disabled"
@@ -95,8 +97,10 @@ echo "All solvers available!"
       // TODO     
       // - deploy nightly build to monteverdi if build succeeds
       // - Use https://stackoverflow.com/questions/44237417/how-do-i-use-ssh-in-a-jenkins-pipeline
-      expression {
+      when {
+        expression {
           !env.currentBuild.changeSets.isEmpty() && env.MIDNIGHT_BUILD
+        }
       }
       steps {
         sh (label: 'deploy nightly', 
