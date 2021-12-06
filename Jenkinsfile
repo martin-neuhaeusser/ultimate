@@ -2,10 +2,19 @@ def scmVars
 def changeMessage
 pipeline {
   agent { label 'linux' && 'java' }
+  parameters {
+    booleanParam(name: 'MIDNIGHT_BUILD', defaultValue: 'false', description: 'Midnight build')
+  }
+  triggers {
+    parameterizedCron('@midnight %MIDNIGHT_BUILD=true')
+  }
   options {
     skipDefaultCheckout()
     timeout(time: 10, unit: 'HOURS')
     skipStagesAfterUnstable()
+  }
+  environment {
+    PATH = "${env.WORKSPACE}/releaseScripts/default/adds:${env.PATH}"
   }
   stages {
     stage('Checkout') {
@@ -15,11 +24,51 @@ pipeline {
         }
       }
     }
-    stage('Build and Test') {
+    stage ('Check environment') {
+      when {
+        expression {
+          !env.currentBuild.changeSets.isEmpty()
+        }
+      }
+      steps {
+        // check existence of solvers 
+        sh 
+          label: 'check solvers', 
+          script: '''#!/bin/bash -xe
+echo $PATH
+which z3
+which cvc4
+which mathsat
+z3 -version
+cvc4 --version | head -n 3
+mathsat -version
+echo "All solvers available!"
+'''
+      }
+    }
+    stage('Build and run basic tests') {
+      when {
+        expression {
+          !env.currentBuild.changeSets.isEmpty() && !env.MIDNIGHT_BUILD
+        }
+      }
       steps {
         withMaven {
           sh "cd trunk/source/BA_MavenParentUltimate && mvn -T 1C clean install"
         } 
+      }
+    }
+    stage('Build and run nightly tests') {
+      when {
+        expression {
+          !env.currentBuild.changeSets.isEmpty() && env.MIDNIGHT_BUILD
+        }
+      }
+      // TODO     - ensure that test attachements are published s
+      steps {
+        withMaven(mavenOpts: '-Xmx4g -Xss4m -ea', options: [junitPublisher(healthScaleFactor: 1.0, keepLongStdio: true)]) {
+          sh 'cd trunk/source/BA_MavenParentUltimate && mvn -T 1C clean install -Pcoverage'
+        }
       }
     }
     // stage('Report'){
@@ -32,6 +81,48 @@ pipeline {
     //     }
     //   }
     // }
+    stage('Run Sonar') {
+      // TODO     
+      // - Check how sonar scanner with pipeline and maven works OR somehow do the "Prepare SonarQube Scanner environment" step
+      // - execute mvn $SONAR_MAVEN_GOAL -Pcoverage -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN
+      expression {
+          !env.currentBuild.changeSets.isEmpty() && env.MIDNIGHT_BUILD
+      }
+      steps {
+        echo "Disabled"
+      }
+    }
+    stage('Deploy nightly build') {
+      // TODO     
+      // - deploy nightly build to monteverdi if build succeeds
+      // - Use https://stackoverflow.com/questions/44237417/how-do-i-use-ssh-in-a-jenkins-pipeline
+      expression {
+          !env.currentBuild.changeSets.isEmpty() && env.MIDNIGHT_BUILD
+      }
+      steps {
+        sh 
+          label: 'deploy nightly', 
+          script: '''#!/bin/bash
+echo "Disabled"
+exit 0
+DATE=$(date +%Y%m%d)
+DEPLOY_DIR="/var/www/localhost/htdocs/ultimate-nightly"
+pushd releaseScripts/default > /dev/null
+./makeFresh.sh
+if [ $? -ne 0 ] ; then echo "Deploy script failed" ; exit 1 ; fi
+pushd UAutomizer-linux > /dev/null
+VERSION=$(./Ultimate.py --ultversion)
+if [ $? -ne 0 ] ; then echo "Ultimate did not provide a version" ; exit 1 ; fi
+VERSION=$(echo "$VERSION" | head -n 1 | sed 's/This is Ultimate //g ; s/origin.//g')
+if [ -z "$VERSION" ] ; then echo "Ultimate did not provide a version" ; exit 1 ; fi
+TARGET="${DEPLOY_DIR}/${DATE}-${VERSION}"
+popd > /dev/null
+mkdir "${TARGET}"
+echo "Moving *.zip to ${TARGET}"
+mv *.zip "${TARGET}/"
+'''
+      }
+    }
   }
   post {
     changed {
@@ -47,12 +138,6 @@ pipeline {
             for (int j = 0; j < entries.length; j++) {
                 def entry = entries[j]
                 changeMessage +="  * ${entry.commitId} by ${entry.author} on ${new Date(entry.timestamp)}: ${entry.msg}\n"
-                // compute affected files and what was changed 
-                // def files = new ArrayList(entry.affectedFiles)
-                // for (int k = 0; k < files.size(); k++) {
-                //     def file = files[k]
-                //     echo "${file.editType.name} ${file.path}"
-                // }
             }
         }
       }
@@ -75,7 +160,7 @@ pipeline {
 ${changeMessage}
 """,
         text: '', 
-        channel: '#botpool', 
+        channel: '#ultimate', 
         icon: "https://jenkins.sopranium.de/static/0e41ff2a/images/jenkins-header-logo-v2.svg"
       )
     }
