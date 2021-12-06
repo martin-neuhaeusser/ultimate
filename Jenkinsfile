@@ -154,7 +154,7 @@ mv *.zip "${TARGET}/"
       )
       mattermostSend( 
         color: "${env.mm_color}", 
-        message: """Build ${currentBuild.id} of **${env.JOB_NAME}** finished with **${currentBuild.currentResult}**.
+        message: """Build ${currentBuild.id} of **${env.JOB_NAME,'UTF-8'}** finished with **${currentBuild.currentResult}**.
 #### Links
 * <${env.BUILD_URL}display/redirect|Open Jenkins log>
 * <${env.RUN_CHANGES_DISPLAY_URL}|Open changes in Jenkins>
