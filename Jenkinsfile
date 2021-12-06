@@ -32,8 +32,7 @@ pipeline {
       }
       steps {
         // check existence of solvers 
-        sh 
-          label: 'check solvers', 
+        sh (label: 'check solvers', 
           script: '''#!/bin/bash -xe
 echo $PATH
 which z3
@@ -43,7 +42,7 @@ z3 -version
 cvc4 --version | head -n 3
 mathsat -version
 echo "All solvers available!"
-'''
+''')
       }
     }
     stage('Build and run basic tests') {
@@ -54,7 +53,7 @@ echo "All solvers available!"
       }
       steps {
         withMaven {
-          sh "cd trunk/source/BA_MavenParentUltimate && mvn -T 1C clean install"
+          sh 'cd trunk/source/BA_MavenParentUltimate && mvn -T 1C clean install'
         } 
       }
     }
@@ -100,8 +99,7 @@ echo "All solvers available!"
           !env.currentBuild.changeSets.isEmpty() && env.MIDNIGHT_BUILD
       }
       steps {
-        sh 
-          label: 'deploy nightly', 
+        sh (label: 'deploy nightly', 
           script: '''#!/bin/bash
 echo "Disabled"
 exit 0
@@ -120,7 +118,7 @@ popd > /dev/null
 mkdir "${TARGET}"
 echo "Moving *.zip to ${TARGET}"
 mv *.zip "${TARGET}/"
-'''
+''')
       }
     }
   }
