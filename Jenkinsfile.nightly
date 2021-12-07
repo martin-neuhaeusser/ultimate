@@ -2,6 +2,9 @@ def scmVars
 def changeMessage
 pipeline {
   agent { label 'linux' && 'java' }
+  triggers {
+    cron('@midnight')
+  }
   options {
     skipDefaultCheckout()
     timeout(time: 10, unit: 'HOURS')
@@ -33,12 +36,55 @@ echo "All solvers available!"
 ''')
       }
     }
-    stage('Build and run basic tests') {
-      when { expression { return !currentBuild.changeSets.isEmpty() } }
+    stage('Build and run nightly tests') {
+      // TODO     - ensure that test attachements are published s
       steps {
-        withMaven {
-          sh 'cd trunk/source/BA_MavenParentUltimate && mvn -T 1C clean install'
-        } 
+        withMaven(mavenOpts: '-Xmx4g -Xss4m -ea', options: [junitPublisher(healthScaleFactor: 1.0, keepLongStdio: true)]) {
+          sh 'cd trunk/source/BA_MavenParentUltimate && mvn -T 1C clean install -Pcoverage'
+        }
+      }
+    }
+    // stage('Report'){
+    //   steps {
+    //     junit keepLongStdio: true, testResults: 'prototype/test_results.xml'
+    //     cobertura coberturaReportFile: 'prototype/cov-cobertura.xml'
+    //     catchError(buildResult: 'SUCCESS', catchInterruptions: false) {
+    //       //do not let coverage result errors fail the build 
+    //       publishCoverage adapters: [coberturaAdapter('prototype/cov-cobertura.xml')], calculateDiffForChangeRequests: true, sourceFileResolver: sourceFiles('NEVER_STORE')
+    //     }
+    //   }
+    // }
+    stage('Run Sonar') {
+      steps {
+        withMaven(mavenOpts: '-Xmx4g -Xss4m', publisherStrategy: 'EXPLICIT') {
+          sh "cd trunk/source/BA_MavenParentUltimate && mvn $SONAR_MAVEN_GOAL -Pcoverage -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN"
+        }
+      }
+    }
+    stage('Deploy nightly build') {
+      // TODO     
+      // - deploy nightly build to monteverdi if build succeeds
+      // - Use https://stackoverflow.com/questions/44237417/how-do-i-use-ssh-in-a-jenkins-pipeline
+      steps {
+        sh (label: 'deploy nightly', 
+          script: '''#!/bin/bash
+echo "Disabled"
+exit 0
+DATE=$(date +%Y%m%d)
+pushd releaseScripts/default > /dev/null
+./makeFresh.sh
+if [ $? -ne 0 ] ; then echo "Deploy script failed" ; exit 1 ; fi
+pushd UAutomizer-linux > /dev/null
+VERSION=$(./Ultimate.py --ultversion)
+if [ $? -ne 0 ] ; then echo "Ultimate did not provide a version" ; exit 1 ; fi
+VERSION=$(echo "$VERSION" | head -n 1 | sed 's/This is Ultimate //g ; s/origin.//g')
+if [ -z "$VERSION" ] ; then echo "Ultimate did not provide a version" ; exit 1 ; fi
+TARGET="${nightly_build}/${DATE}-${VERSION}"
+popd > /dev/null
+mkdir "${TARGET}"
+echo "Moving *.zip to ${TARGET}"
+mv *.zip "${TARGET}/"
+''')
       }
     }
   }
