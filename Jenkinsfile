@@ -26,7 +26,7 @@ pipeline {
       // TODO: Try and run some of the tests directly, e.g. https://stackoverflow.com/questions/28721925/is-it-possible-to-configure-tycho-surefire-to-run-in-the-test-phase
       when { expression { return !currentBuild.changeSets.isEmpty() } }
       steps {
-        withMaven {
+        withMaven(options: [artifactsPublisher(disabled: true)]) {
           sh 'cd trunk/source/BA_MavenParentUltimate && mvn -T 1C clean install'
         } 
       }
