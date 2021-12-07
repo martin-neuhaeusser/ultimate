@@ -19,21 +19,11 @@ pipeline {
     }
     stage ('Check environment') {
       steps {
-        // check existence of solvers 
-        sh (label: 'check solvers', 
-          script: '''#!/bin/bash -xe
-echo $PATH
-which z3
-which cvc4
-which mathsat
-z3 -version
-cvc4 --version | head -n 3
-mathsat -version
-echo "All solvers available!"
-''')
+        sh (label: 'check solvers', script: 'releaseScripts/default/check_solvers.sh')
       }
     }
     stage('Build and run basic tests') {
+      // TODO: Try and run some of the tests directly, e.g. https://stackoverflow.com/questions/28721925/is-it-possible-to-configure-tycho-surefire-to-run-in-the-test-phase
       when { expression { return !currentBuild.changeSets.isEmpty() } }
       steps {
         withMaven {
@@ -64,8 +54,7 @@ echo "All solvers available!"
         mimeType: 'text/plain', 
         recipientProviders: [culprits(), developers(), requestor()], 
         replyTo: 'dietsch@informatik.uni-freiburg.de', 
-        subject: '$DEFAULT_SUBJECT', 
-        to: "${MAIL}"
+        subject: '$DEFAULT_SUBJECT'
       )
       mattermostSend( 
         color: "${env.mm_color}", 
